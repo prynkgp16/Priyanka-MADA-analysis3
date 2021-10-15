@@ -38,8 +38,7 @@ lmfit <-
 
 ##  linear model 1 .Body temperature on runny nose 
 
-lmfit1
-<- lm(BodyTemp ~ RunnyNose, cleaneddata)  
+lmfit1<- lm(BodyTemp ~ RunnyNose, cleaneddata)  
 
 # place results from fit into a data frame with the tidy function
 lmtable1 <- broom::tidy(lmfit1)
@@ -62,7 +61,7 @@ print(lmtable2)
 
 #####Comparing model results 
 
-comparing_model <- anova(lmfit$fit, lmfit1$fit)
+comparing_model <- anova(lmfit1$fit, lmfit2$fit)
 
 ### Logistic regression Model
 
