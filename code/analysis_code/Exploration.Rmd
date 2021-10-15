@@ -1,0 +1,108 @@
+---
+title: "Exploration"
+author: "priyanka"
+date: "10/14/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(ggplot2) #for plotting
+library(broom) #for cleaning up output from lm()
+library(here) #for data loading/saving
+library(tidyverse)
+library(pastecs)
+```
+
+```{r}
+cleaneddata <- readRDS(here::here("data","processed_data","processeddata.rds"))
+```
+
+```{r}
+glimpse(cleaneddata)
+```
+
+
+### Primary Outcome Variables
+Main continuous outcome: Body Temperature
+Main categorical outcome: Nausea
+
+### Summary statistics
+
+```{r}
+stat.desc(cleaneddata)
+```
+
+```{r}
+summary(cleaneddata$BodyTemp)
+```
+
+### Histogram/Densityplot
+
+```{r}
+histo_den_plot <- ggplot(cleaneddata, aes(x=BodyTemp)) + 
+   geom_histogram(aes(y=..density..), colour="black", fill="white")+
+geom_density(alpha=.2, fill="#FF6666")
+```
+
+```{r}
+histo_den_plot
+```
+
+### Nausea Plot
+```{r}
+Nausea_plot <- ggplot(data=cleaneddata, aes(x=Nausea, fill=Nausea)) + geom_bar() +
+labs(title= "Bar Chart for Nausea") + xlab("Nausea") +  ylab("Count") + theme_minimal()
+```
+
+```{r}
+Nausea_plot
+```
+
+
+###PLot Body temperature vs weakness
+
+```{r}
+bodytemp_weakness_plot <-ggplot(cleaneddata, aes(x=Weakness, y=BodyTemp, color=Weakness)) +
+ geom_bar(stat="identity", fill="white")
+```
+
+```{r}
+bodytemp_weakness_plot
+```
+
+###Stacked Barplot between groups
+
+```{r}
+plot1 <- ggplot(data=cleaneddata, aes(x=Weakness, y=BodyTemp, fill=Nausea))+ 
+geom_bar(stat="identity")+
+  
+geom_text(aes(label=BodyTemp), vjust=1.6, 
+            color="white", size=3.5)+
+scale_fill_brewer(palette="Paired")+
+ theme_minimal()
+```
+
+```{r}
+plot1
+```
+
+### Boxplots  for predictor variables
+
+###Body temperature and Weakness
+
+```{r}
+boxplot(BodyTemp ~ Weakness, data = cleaneddata, frame = FALSE,
+   border = c("#999999", "#E69F00", "#56B4E9"))
+```
+
+
+###Body temperature and cough intensity
+
+```{r}
+boxplot(BodyTemp ~ CoughIntensity, data = cleaneddata, frame = FALSE,
+   border = c("#999999", "#E69F00", "#56B4E9"))
+```
