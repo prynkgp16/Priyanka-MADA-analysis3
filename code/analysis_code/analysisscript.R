@@ -8,62 +8,101 @@
 library(ggplot2) #for plotting
 library(broom) #for cleaning up output from lm()
 library(here) #for data loading/saving
-
+library(tidyverse)
 #path to data
 #note the use of the here() package and not absolute paths
 data_location <- here::here("data","processed_data","processeddata.rds")
 
 #load data. 
-mydata <- readRDS(data_location)
+cleaneddata <- readRDS(data_location)
 
-######################################
-#Data exploration/description
-######################################
-#I'm using basic R commands here.
-#Lots of good packages exist to do more.
-#For instance check out the tableone or skimr packages
-
-#summarize data 
-mysummary = summary(mydata)
-
-#look at summary
-print(mysummary)
-
-#do the same, but with a bit of trickery to get things into the 
-#shape of a data frame (for easier saving/showing in manuscript)
-summary_df = data.frame(do.call(cbind, lapply(mydata, summary)))
-
-#save data frame table to file for later use in manuscript
-summarytable_file = here("results", "summarytable.rds")
-saveRDS(summary_df, file = summarytable_file)
-
-
-#make a scatterplot of data
-#we also add a linear regression line to it
-p1 <- mydata %>% ggplot(aes(x=Height, y=Weight)) + geom_point() + geom_smooth(method='lm')
-
-#look at figure
-plot(p1)
-
-#save figure
-figure_file = here("results","resultfigure.png")
-ggsave(filename = figure_file, plot=p1) 
 
 ######################################
 #Data fitting/statistical analysis
 ######################################
 
+##Linear Models
+
+library(tidymodels)  
+
+library(readr)
+
+
+#setting engine
+lmfit <- 
+  linear_reg() %>% 
+  set_engine("lm")
+
+
 # fit linear model
-lmfit <- lm(Weight ~ Height, mydata)  
+
+##  linear model 1 .Body temperature on runny nose 
+
+lmfit1
+<- lm(BodyTemp ~ RunnyNose, cleaneddata)  
 
 # place results from fit into a data frame with the tidy function
-lmtable <- broom::tidy(lmfit)
+lmtable1 <- broom::tidy(lmfit1)
 
 #look at fit results
-print(lmtable)
+print(lmtable1)
+
+
+##  linear model 2 .Body temperature on on all predictors
+
+lmfit2 <- lm(BodyTemp ~ ., cleaneddata)
+
+
+# place results from fit into a data frame with the tidy function
+lmtable2 <- broom::tidy(lmfit2)
+
+#look at fit results
+print(lmtable2)
+
+
+#####Comparing model results 
+
+comparing_model <- anova(lmfit$fit, lmfit1$fit)
+
+### Logistic regression Model
+
+### Logistic regression Model 1 : Nausea on runny nose
+
+log_fit <- 
+  logistic_reg() %>% 
+  set_mode("classification") %>% 
+  set_engine("glm")
+
+glm_1 <- 
+  log_fit %>% 
+  fit(Nausea ~ RunnyNose, data = cleaneddata)
+
+glm_1
+
+#summarize the results
+tidy(glm_1)
+
+
+#Logistic regression Model 2: nausea on all predictors
+
+glm_2 <- log_fit %>% 
+  fit(Nausea ~ ., data = cleaneddata)
+
+glm_2
+
+#summarize the results
+tidy(glm_2)
+
+
+#####Comparing model results
+
+Comp_model <- anova(glm_1$fit, glm_2$fit)
+
+
+
+#####  model with all predictors had a better fit than single predcitor model
 
 # save fit results table  
-table_file = here("results", "resulttable.rds")
-saveRDS(lmtable, file = table_file)
-
+saveRDS(Comp_model, file = here::here("results", "glmtable.Rds"))
+saveRDS(comparing_model, file = here::here("results", "lineartable.Rds"))
   
