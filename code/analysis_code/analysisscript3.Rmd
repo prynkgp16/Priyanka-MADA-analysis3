@@ -77,7 +77,7 @@ set.seed(123)
 ```{r}
 ##70% of the data into the training set and 30% into testing
 
-data_split <- initial_split(data_bi_pre_rem, prop = 0.7, strata = BodyTemp)
+data_split <- initial_split(data_bi_pre_rem, prop = 3/4, strata = BodyTemp)
 ```
 
 # Create data frames for the two sets:
@@ -100,24 +100,29 @@ fold_5_data<- vfold_cv(train_data, v = 5, repeats = 5, strata = BodyTemp)
 ```{r}
 recipe_BT <- recipe(BodyTemp ~ ., data = train_data) %>% step_dummy(all_predictors())
 ```
+
+     
 #Null model performance
 ```{r}
 
-# Fitting a logistic model 
+# Creates a recipe that fits null model
 
-ln_mod <- 
-  linear_reg() %>% 
-  set_engine("lm") %>%
-  set_mode("regression")
+BT_rec_null <- recipe(BodyTemp ~  1 , data = train_data)
 ```
 
+#Build a model specification
 
+```{r}
+lm_mod <- linear_reg() %>%
+    set_engine("lm")
+
+```
 # Null Model Workflow
 ```{r}
 null_wflow <-
   workflow() %>% 
-  add_model(ln_mod) %>% 
-  add_recipe(recipe_BT)
+  add_model(lm_mod) %>% 
+  add_recipe(BT_rec_null)
 ```
 
 ```{r}
@@ -155,7 +160,7 @@ tune_spec <-
     tree_depth = tune()
   ) %>% 
   set_engine("rpart") %>% 
-  set_mode("classification")
+  set_mode("regression")
 ```
 
 #Tune grid specification:
@@ -177,13 +182,158 @@ tree_workflow <- workflow() %>%
      add_recipe(recipe_BT)
 
 
-
-
-##Warning message:
-##This tuning result has notes. Example notes on model fitting include:
-##preprocessor 1/1, model 1/25: Error: For a classification model, the outcome should be a factor
-
+tree_res <- tree_workflow %>%
+     tune::tune_grid(resamples = fold_5_data,
+                     grid = tree_grid,
+                     control = control_grid(verbose = FALSE, save_pred = TRUE),                                    metrics = metric_set(rmse))
 ```
+
+
 ##The function collect_metrics() gives us a tidy tibble with all the results
 
+```{r}
+  tree_res %>% 
+   collect_metrics()
+
+
+tree_res %>% autoplot()
+   
+
+### Show best
+tree_res %>%
+     show_best("rmse")
      
+```
+
+#Pull out the single set of hyperparameter values for our best decision tree model
+
+```{r}
+best_tree <- tree_res %>%
+     select_best("rmse")
+
+best_tree
+```
+
+##Finalize Model
+
+```{r}
+final_wf <- 
+    tree_workflow %>% 
+    finalize_workflow(best_tree)
+
+ final_wf
+```
+##fit this final model to the training data and use our test data to estimate the model performance
+
+```{r}
+final_fit <- 
+     final_wf %>%
+    last_fit(data_split)
+
+final_fit %>%
+  collect_metrics()
+```
+
+## rmse    standard      1.13 
+
+
+## LASSO Model
+
+# model specification
+
+```{r}
+lasso_mod <- 
+  linear_reg(penalty = tune(), mixture = 1) %>% 
+  set_engine("glmnet")
+```
+
+# Create a workflow
+
+
+#Workflow
+```{r}
+lasso_workflow <-
+  workflow() %>%
+  add_model(lasso_mod) %>%
+  add_recipe(recipe_BT)
+```
+
+```{r}
+lasso_mod <- 
+  linear_reg(penalty = tune(), mixture = 1) %>% 
+  set_engine("glmnet")
+```
+
+##Tuning
+
+```{r}
+lasso_grid <- tibble(penalty = 10^seq(-4,-1,length.out = 30))
+
+
+lasso_res <-
+    lasso_workflow %>%
+     tune_grid(fold_5_data,
+grid = lasso_grid,
+               control = 
+                   control_grid(save_pred = TRUE),
+              metrics = 
+                   metric_set(rmse))
+
+
+
+ lasso_res
+ 
+ 
+ 
+ best_model <- lasso_res %>%
+    show_best("rmse", n = 15) %>%
+    arrange(penalty)
+ 
+ 
+best_model 
+```
+
+
+## random forest model
+```{r}
+rf_model <- rand_forest(mtry = tune(), min_n = tune(), trees = 1000) %>%
+  set_engine("ranger", num.threads = cores) %>%
+  set_mode("regression")
+
+rf_model %>%
+  parameters()
+
+ rf_workflow <-
+    workflow() %>%
+    add_model(rf_model) %>%
+    add_recipe(recipe_BT)
+
+ 
+rf_res <-
+    rf_workflow %>%
+     tune_grid(fold_5_data,
+grid = 25,
+               control = 
+                   control_grid(save_pred = TRUE),
+              metrics = 
+                   metric_set(rmse))
+
+rf_res %>% 
+  show_best(metric = "rmse")
+
+
+rf_best <-
+  rf_res %>%
+  select_best(metric = "rmse")
+
+
+final_rf_workflow <- 
+  rf_workflow %>%
+  finalize_workflow(rf_best)
+
+
+final__rf_forest <- 
+  final_rf_workflow %>%
+  last_fit(data_split)
+
+```
