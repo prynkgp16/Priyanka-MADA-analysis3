@@ -1,0 +1,189 @@
+---
+title: Module- Machine Learning Models I"
+author: "Priyanka"
+date: "11/5/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#load needed packages.
+```{r}
+library(readxl) #for loading Excel files
+library(dplyr) #for data processing
+library(here) #to set paths
+library(tidyr)
+library(rpart.plot) #for visualizing a decision tree
+library(vip) #for variable importance plots
+library(ranger)
+library(glmnet)
+library(tidymodels)
+library(tidyverse)
+```
+## Load Data
+
+```{r}
+data_location <- here::here("data","processed_data","processeddata.rds")
+
+cleaneddata <- readRDS(data_location)
+
+cleaneddata
+``` 
+ 
+## Pre-processing-Variable removal
+
+## Removing WeaknessYN, CoughYN ,  CoughYN2 and MyalgiaYN exist on both a severity score and as Yes/No
+
+```{r}
+
+data_var_Rem <- dplyr::select(cleaneddata, -c(WeaknessYN, MyalgiaYN, CoughYN, CoughYN2))
+
+```
+
+##Coding three ordered factors (Weakness, CoughIntensity, Myalgia)
+
+```{r}
+data_var_Rem <- mutate(data_var_Rem, Weakness = factor(Weakness, levels = c("None", "Mild","Moderate","Severe"),ordered = TRUE))
+
+data_var_Rem <- mutate(data_var_Rem, CoughIntensity= factor(CoughIntensity, levels = c("None", "Mild","Moderate","Severe"),ordered = TRUE))
+
+data_var_Rem <- mutate(data_var_Rem, Myalgia = factor(Myalgia , levels = c("None", "Mild","Moderate","Severe"),ordered = TRUE))
+
+data_var_Rem
+
+```
+
+
+#Removing unbalanced binary predictors
+
+```{r}
+
+data_bi_pre_rem <- subset(data_var_Rem, select = -c(Hearing, Vision))
+
+data_bi_pre_rem
+
+```
+
+
+#setting random seed to 123
+
+```{r}
+set.seed(123)
+```
+
+#Split the data 
+```{r}
+##70% of the data into the training set and 30% into testing
+
+data_split <- initial_split(data_bi_pre_rem, prop = 0.7, strata = BodyTemp)
+```
+
+# Create data frames for the two sets:
+```{r}
+
+train_data <- training(data_split)
+test_data  <- testing(data_split)
+```
+
+# 5-fold cross-validation
+```{r}
+
+fold_5_data<- vfold_cv(train_data, v = 5, repeats = 5, strata = BodyTemp)
+```
+
+
+
+# Creating a recipe 
+
+```{r}
+recipe_BT <- recipe(BodyTemp ~ ., data = train_data) %>% step_dummy(all_predictors())
+```
+#Null model performance
+```{r}
+
+# Fitting a logistic model 
+
+ln_mod <- 
+  linear_reg() %>% 
+  set_engine("lm") %>%
+  set_mode("regression")
+```
+
+
+# Null Model Workflow
+```{r}
+null_wflow <-
+  workflow() %>% 
+  add_model(ln_mod) %>% 
+  add_recipe(recipe_BT)
+```
+
+```{r}
+null_fit<-
+  null_wflow %>%
+  fit(data = train_data )
+```
+
+# Predictions based on null model
+```{r}
+prediction_train<-predict(null_fit, train_data)
+
+prediction_test <-predict(null_fit, test_data)
+
+prediction_train
+
+prediction_test
+```
+
+
+##The steps (block of code) you should have here are :
+##1) model specification,
+##2) workflow definition, 
+##3) tuning grid specification and 
+##4) tuning using cross-validation and the tune_grid() function
+
+
+##1) model specification
+
+```{r}
+
+tune_spec <- 
+  decision_tree(
+    cost_complexity = tune(),
+    tree_depth = tune()
+  ) %>% 
+  set_engine("rpart") %>% 
+  set_mode("classification")
+```
+
+#Tune grid specification:
+```{r}
+tree_grid <-
+  grid_regular(cost_complexity(),
+               tree_depth(),
+               levels = 5)
+
+##25 different possible tuning combinations
+
+tree_grid
+```
+
+#Workflow definition
+```{r}
+tree_workflow <- workflow() %>%
+    add_model(tune_spec) %>%
+     add_recipe(recipe_BT)
+
+
+
+
+##Warning message:
+##This tuning result has notes. Example notes on model fitting include:
+##preprocessor 1/1, model 1/25: Error: For a classification model, the outcome should be a factor
+
+```
+##The function collect_metrics() gives us a tidy tibble with all the results
+
+     

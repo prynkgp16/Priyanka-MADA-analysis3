@@ -16,14 +16,14 @@ library(dplyr)
 
 ```{r
 
-data_location <- here::here("data","processed_data","processeddata.rds")
+data_location1 <- here::here("data","processed_data","processeddata.rds")
 
 ```
 
 #load data. 
 
 ```{r
-cleaneddata <- readRDS(data_location)
+cleaneddata2 <- readRDS(data_location1)
 ```
 
 #SPliting data :a training set and a testing set
@@ -31,14 +31,14 @@ cleaneddata <- readRDS(data_location)
 # Put 3/4 of the data into the training set 
 
 
-data_split <- initial_split(cleaneddata, prop = 3/4)
+data_split1 <- initial_split(cleaneddata2, prop = 3/4)
 
 
 # Create data frames for the two sets:
 
 
-train_data <- training(data_split)
-test_data  <- testing(data_split)
+train_data <- training(data_split1)
+test_data  <- testing(data_split1)
 
 
 # Creating Recipe for all predcitors
